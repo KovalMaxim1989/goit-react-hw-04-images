@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from './App.styled';
 import Searchbar from './Searchbar/Searchbar';
 import fetchAPI from './serviceAPI/serviceAPI';
@@ -7,139 +7,101 @@ import Loader from './Loader/Loader';
 import ImageGallery from './ImageGallery/ImageGallery';
 import Button from './Button/Button';
 
-export default class App extends Component {
-  state = {
-    query: '',
-    page: 1,
-    images: null,
-    imagesOnPage: 0,
-    totalImages: 0,
-    currentImageUrl: null,
-    currentImageTag: null,
-    isLoading: false,
-    showModal: false,
-    error: null,
-  };
+export default function App() {
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [images, setImages] = useState(null);
+  const [imagesOnPage, setImagesOnPage] = useState(0);
+  const [totalImages, setTotalImages] = useState(0);
+  const [currentImageUrl, setCurrentImageUrl] = useState(null);
+  const [currentImageTag, setCurrentImageTag] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [error, setError] = useState(null);
 
-  componentDidUpdate(_, prevState) {
-    const { query, page } = this.state;
-
-    if (prevState.query !== query) {
-      this.setState(({ isLoading }) => ({ isLoading: !isLoading }));
-
-      fetchAPI(query)
-        .then(({ hits, totalHits }) => {
-          const array = hits.map(hit => ({
-            id: hit.id,
-            tag: hit.tags,
-            smallImage: hit.webformatURL,
-            largeImage: hit.largeImageURL,
-          }));
-
-          if (!totalHits) {
-            alert(`Sorry, but there is no any data for ${query}`);
-          }
-
-          return this.setState({
-            page: 1,
-            images: array,
-            imagesOnPage: array.length,
-            totalImages: totalHits,
-          });
-        })
-        .catch(error => this.setState({ error }))
-        .finally(() =>
-          this.setState(({ isLoading }) => ({ isLoading: !isLoading }))
-        );
+  useEffect(() => {
+    if (!query) {
+      return;
     }
 
-    if (prevState.page !== page && page !== 1) {
-      this.setState(({ isLoading }) => ({ isLoading: !isLoading }));
+    setIsLoading(true);
 
-      fetchAPI(query, page)
-        .then(({ hits }) => {
-          const array = hits.map(hit => ({
-            id: hit.id,
-            tag: hit.tags,
-            smallImage: hit.webformatURL,
-            largeImage: hit.largeImageURL,
-          }));
+    fetchAPI(query, page)
+      .then(({ hits, totalHits }) => {
+        const array = hits.map(hit => ({
+          id: hit.id,
+          tag: hit.tags,
+          smallImage: hit.webformatURL,
+          largeImage: hit.largeImageURL,
+        }));
 
-          return this.setState(({ images, imagesOnPage }) => {
-            return {
-              images: [...images, ...array],
-              imagesOnPage: array.length + imagesOnPage,
-            };
-          });
-        })
-        .catch(error => this.setState({ error }))
-        .finally(() =>
-          this.setState(({ isLoading }) => ({ isLoading: !isLoading }))
-        );
-    }
-  }
+        setTotalImages(totalHits);
 
-  getResult = query => {
-    this.setState({ query });
+        if (!totalHits) {
+          alert(`Sorry, but there is no any data for ${query}`);
+          return;
+        }
+
+        if (totalHits !== 0 && page === 1) {
+          setImages(array);
+          setImagesOnPage(array.length);
+        } else {
+          setImages(prevState => [...prevState, ...array]);
+          setImagesOnPage(prevState => prevState + array.length);
+        }
+      })
+      .catch(error => {
+        setError(error);
+      })
+      .finally(() => setIsLoading(false));
+  }, [query, page, error]);
+
+  const getResult = query => {
+    setQuery(query);
+    setImages([]);
+    setPage(1);
   };
 
-  onLoadMore = () => {
-    this.setState(({ page }) => ({ page: page + 1 }));
+  const onLoadMore = () => {
+    setPage(prevState => prevState + 1);
   };
 
-  onToggleModal = () => {
-    this.setState(({ showModal }) => ({ showModal: !showModal }));
+  const onToggleModal = () => {
+    setShowModal(prevState => !prevState);
   };
 
-  onOpenModal = event => {
-    const currentImageUrl = event.target.dataset.large;
-    const currentImageTag = event.target.alt;
+  const onOpenModal = evt => {
+    const currentImageUrl = evt.target.dataset.large;
+    const currentImageTag = evt.target.alt;
 
-    if (event.target.nodeName === 'IMG') {
-      this.setState(({ showModal }) => ({
-        showModal: !showModal,
-        currentImageUrl: currentImageUrl,
-        currentImageTag: currentImageTag,
-      }));
+    if (evt.target.nodeName === 'IMG') {
+      return (
+        setShowModal(!showModal),
+        setCurrentImageUrl(currentImageUrl),
+        setCurrentImageTag(currentImageTag)
+      );
     }
   };
 
-  render() {
-    const {
-      images,
-      imagesOnPage,
-      totalImages,
-      currentImageUrl,
-      currentImageTag,
-      isLoading,
-      showModal,
-    } = this.state;
+  return (
+    <Layout>
+      <Searchbar onSubmit={getResult} />
 
-    const getResult = this.getResult;
-    const onLoadMore = this.onLoadMore;
-    const onOpenModal = this.onOpenModal;
-    const onToggleModal = this.onToggleModal;
+      {isLoading && <Loader />}
 
-    return (
-      <Layout>
-        <Searchbar onSubmit={getResult} />
+      {images && <ImageGallery images={images} openModal={onOpenModal} />}
 
-        {isLoading && <Loader />}
+      {imagesOnPage >= 12 && imagesOnPage < totalImages && (
+        <Button onLoadMore={onLoadMore} />
+      )}
 
-        {images && <ImageGallery images={images} openModal={onOpenModal} />}
-
-        {imagesOnPage >= 12 && imagesOnPage < totalImages && (
-          <Button onLoadMore={onLoadMore} />
-        )}
-
-        {showModal && (
-          <Modal
-            onClose={onToggleModal}
-            currentImageUrl={currentImageUrl}
-            currentImageTag={currentImageTag}
-          />
-        )}
-      </Layout>
-    );
-  }
+      {showModal && (
+        <Modal
+          onClose={onToggleModal}
+          currentImageUrl={currentImageUrl}
+          currentImageTag={currentImageTag}
+        />
+      )}
+    </Layout>
+  );
 }
