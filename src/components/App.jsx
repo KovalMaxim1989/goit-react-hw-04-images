@@ -54,7 +54,7 @@ export default function App() {
         setError(error);
       })
       .finally(() => setIsLoading(false));
-  }, [query, page, error]);
+  }, [query, page]);
 
   const getResult = query => {
     setQuery(query);
