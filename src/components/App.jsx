@@ -6,6 +6,7 @@ import Modal from './Modal/Modal';
 import Loader from './Loader/Loader';
 import ImageGallery from './ImageGallery/ImageGallery';
 import Button from './Button/Button';
+import { Error } from './Error/Error';
 
 export default function App() {
   const [query, setQuery] = useState('');
@@ -18,6 +19,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState(null);
+  const [status, setStatus] = useState('idle');
 
   useEffect(() => {
     if (!query) {
@@ -52,6 +54,7 @@ export default function App() {
       })
       .catch(error => {
         setError(error);
+        setStatus('rejected');
       })
       .finally(() => setIsLoading(false));
   }, [query, page]);
@@ -102,6 +105,7 @@ export default function App() {
           currentImageTag={currentImageTag}
         />
       )}
+      {status === 'rejected' && <Error error={error} />}
     </Layout>
   );
 }
